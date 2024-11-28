@@ -1,11 +1,16 @@
 from aiogram import types, Dispatcher
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
-from aiogram.dispatcher.filters import Text
+from aiogram.dispatcher.filters import Text, state
 from db import db_main
+import buttons
+from config import Admins
+from config import staff
+
 
 class FsmRecord(StatesGroup):
 
+    staff = State()
     name = State()
     category = State()
     size = State()
@@ -17,6 +22,11 @@ class FsmRecord(StatesGroup):
 async def start_fsm_record(message: types.Message):
     await FsmRecord.name.set()
     await message.answer(text='введите название товара')
+
+async def staff_check(message: types.Message):
+    if message.from_user.id not in staff:
+        await message.answer('u have no rights')
+        await state.finish()
 
 
 async def load_name(message: types.Message, state=FSMContext):
@@ -67,8 +77,13 @@ async def load_photo(message: types.Message, state=FSMContext):
                                          f"артикл - {data['article']}\n")
 
     await FsmRecord.next()
+    await message.answer("Верные ли данные?", reply_markup=buttons.submit)
 
 async def submit(message: types.Message, state=FSMContext):
+    if message.text == 'Да':
+        kb_remove = types.ReplyKeyboardRemove()
+        await message.answer('Отлично, товар в базе!', reply_markup=kb_remove)
+
 
         async with state.proxy() as data:
             await db_main.sql_insert_product(
@@ -79,9 +94,19 @@ async def submit(message: types.Message, state=FSMContext):
                 article=data['article'],
                 photo=data['photo'],
             )
+        await state.finish()
+
+    elif message.text == 'Нет':
+        kb_remove = types.ReplyKeyboardRemove()
+        await message.answer('Отменено!', reply_markup=kb_remove)
+        await state.finish()
+
+    else:
+        await message.answer('Введите Да или Нет')
 
 
 def register_handler_fsm_zapis(dp: Dispatcher):
+    dp.register_message_handler(staff_check, state=FsmRecord.staff)
     dp.register_message_handler(start_fsm_record, commands=['fsm'])
     dp.register_message_handler(load_name, state=FsmRecord.name)
     dp.register_message_handler(load_category, state=FsmRecord.category)

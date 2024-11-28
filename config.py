@@ -9,4 +9,4 @@ bot = Bot(token=token)
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
 
-staff = []
+staff = ['1268007497', ]
